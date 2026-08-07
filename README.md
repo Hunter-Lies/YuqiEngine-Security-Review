@@ -91,15 +91,17 @@
 
 ## "既要又要"矛盾清单
 
+> 证据列格式：`文件：行号（代码含义）`。行号对应评估所用的反编译产物（见附录 B），供复核使用；结论本身以行为描述与附录索引为准。
+
 | # | 既要…… | 又要…… | 证据 |
 |---|---|---|---|
-| 1 | 安全兜底：要求用户先创建系统还原点 | 失败不阻断：还原点不可用/失败/异常时"提醒后继续执行" | 79525-79585、140443 |
-| 2 | 只处理可自动恢复项（README/守护助手） | 提供"仅引导恢复"的安全缓解开关，关闭后拒绝自动回滚 | 35370、50103 |
-| 3 | 不要批量应用（README） | 提供一键优化入口，且还原点门禁同样非阻断 | 7342、79500 起 |
-| 4 | 可校验更新（README 提供 SHA-256） | 未签名本体导致自身更新校验永远无法通过 | NotSigned、VerifyPackagePublisherTrust |
-| 5 | 专业诊断/恢复（事务回滚、快照、修复中心） | powercfg 子进程风暴拖垮系统稳定性 | 日志 341 次/41 分钟 |
-| 6 | 不是万能一键提速（README 定位） | 一键关闭全部安全防护、修改 BCD 启动项 | 操作目录 |
-| 7 | 个人独立开发 + AI 辅助 | 部分实现达到专业级（签名校验、防 zip-slip、命令白名单） | VerifyPackagePublisherTrust、IsSafeArchiveEntry |
+| 1 | 安全兜底：要求用户先创建系统还原点 | 失败不阻断：还原点不可用/失败/异常时"提醒后继续执行" | `YuqiEngine.decompiled.cs` 79525-79585（还原点失败路径：失败仍返回并继续执行）；140443（门禁仅检查"能否创建"） |
+| 2 | 只处理可自动恢复项（README/守护助手） | 提供"仅引导恢复"的安全缓解开关，关闭后拒绝自动回滚 | `GameOptimizer.Core.decompiled.cs` 35370（`CreateGuidedOnlyRevert`：缓解项仅引导恢复）；50103（`cpu.disable_spectre_meltdown` 操作定义） |
+| 3 | 不要批量应用（README） | 提供一键优化入口，且还原点门禁同样非阻断 | `GameOptimizer.Core.decompiled.cs` 7342（"可按需执行一键优化"推荐）；`YuqiEngine.decompiled.cs` 79500 起（`[OneClickGuard]` 一键批量流程） |
+| 4 | 可校验更新（README 提供 SHA-256） | 未签名本体导致自身更新校验永远无法通过 | 实测 `Get-AuthenticodeSignature`：YuqiEngine.exe / YuqiGuard.exe 均 NotSigned；`UpdateCheckService` 更新要求"进程与更新包 Authenticode 签名一致" |
+| 5 | 专业诊断/恢复（事务回滚、快照、修复中心） | powercfg 子进程风暴拖垮系统稳定性 | 实测日志：41 分钟内 341 次 powercfg 子进程、单秒峰值 41 次（见"核心安全发现 5"） |
+| 6 | 不是万能一键提速（README 定位） | 一键关闭全部安全防护、修改 BCD 启动项 | `GameOptimizer.Core.decompiled.cs` 操作目录（如 60563-60575 BCD 项、87549 Defender 实时防护） |
+| 7 | 个人独立开发 + AI 辅助 | 部分实现达到专业级（签名校验、防 zip-slip、命令白名单） | `UpdateCheckService.cs`（`VerifyPackagePublisherTrust` 签名校验）；`UpdateApplyService.cs`（`IsSafeArchiveEntry` 防 zip-slip） |
 
 **矛盾的本质**：当"显得专业安全"与"功能全、改动深"冲突时，让步的总是安全——提示降级为提醒、门禁降级为文案、恢复降级为"引导"。
 
@@ -176,14 +178,18 @@
 
 ---
 
-## 附录：证据索引
+## 附录 A：证据索引
 
 - 还原点降级文案与调用代码：`GameOptimizer.Core.decompiled.cs` 98489-98491、98497；`YuqiEngine.decompiled.cs` 79525-79585、140443、148191
 - BCD 操作与警告：`GameOptimizer.Core.decompiled.cs` 60563-60575、68299、70485-70553、28903
-- 缓解仅引导恢复：35370、28835、50103
-- 关闭防护类操作：87549 等；一键优化入口：7342
-- powercfg 轮询：84216、30108、30189、35401、52873
+- 缓解仅引导恢复：`GameOptimizer.Core.decompiled.cs` 35370、28835、50103
+- 关闭防护类操作：`GameOptimizer.Core.decompiled.cs` 87549 等；一键优化入口：7342
+- powercfg 轮询：`GameOptimizer.Core.decompiled.cs` 84216、30108、30189、35401、52873
 - 签名状态：`Get-AuthenticodeSignature`（YuqiEngine.exe / YuqiGuard.exe 均 NotSigned）
 - 运行日志：`%LOCALAPPDATA%\YuqiEngine\Logs\yuqiengine-20260808.log`
 - 官方 README：作者 GitHub 仓库 `README.md`
-- 反编译产物：`GameOptimizer.Core.decompiled.cs`、`YuqiEngine.decompiled.cs`（评估用临时产物）
+
+## 附录 B：反编译产物说明
+
+- 评估使用的反编译产物：`GameOptimizer.Core.decompiled.cs`、`YuqiEngine.decompiled.cs`（由软件运行时内存 dump 提取的托管 DLL 反编译生成，为评估用临时产物）
+- 文中行号均为上述反编译产物中的行号，供复核；行号可能随反编译工具版本略有差异，结论不依赖具体行号
